@@ -24,6 +24,10 @@ def criar_mock_doc_spacy(texto: str):
     tokens = [criar_mock_token_spacy(p, lema=p) for p in palavras]
     doc = MagicMock()
     doc.__iter__ = MagicMock(return_value=iter(tokens))
+    # Simula segmentação de frases: um único sent por chamada (parágrafo inteiro como frase)
+    sent_mock = MagicMock()
+    sent_mock.text = texto
+    doc.sents = [sent_mock]
     return doc
 
 
@@ -50,6 +54,7 @@ def motor_com_mock_spacy(mock_spacy):
     motor._matriz_tfidf = None
     motor._documentos_originais = []
     motor._fontes_documentos = []
+    motor._frases_processadas = []
     motor._stopwords_personalizadas = set()
     motor._modelo_treinado = False
     motor._modelo_spacy_nome = "mock"

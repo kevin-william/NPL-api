@@ -95,6 +95,9 @@ def test_busca_quando_modelo_treinado_entao_retorna_resultados(cliente):
     assert len(dados["resultados"]) > 0
     resultado = dados["resultados"][0]
     assert "identificador_documento" in resultado
+    assert "numero_paragrafo" in resultado
+    assert "numero_frase" in resultado
+    assert "frase_completa" in resultado
     assert "trecho_relevante" in resultado
     assert "pontuacao_similaridade" in resultado
     assert "fonte_documento" in resultado
