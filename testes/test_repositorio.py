@@ -161,3 +161,48 @@ async def test_repositorio_arquivo_limpar_todos_os_dados(tmp_path, documentos_re
 
     assert docs == []
     assert stopwords == []
+
+
+@pytest.mark.asyncio
+async def test_repositorio_memoria_acumula_documentos_em_multiplas_chamadas():
+    """Testa que salvar_documentos com listas distintas substitui — e que o serviço acumula externamente."""
+    from repositorio.repositorio_memoria import RepositorioMemoria
+    from modelos.respostas import DocumentoComFonte
+
+    repo = RepositorioMemoria()
+    lote_1 = [DocumentoComFonte(texto="Doc A.", fonte="a.txt")]
+    lote_2 = [DocumentoComFonte(texto="Doc B.", fonte="b.txt")]
+
+    # Simula o comportamento do serviço: carregar + concatenar + salvar
+    existentes = await repo.carregar_documentos()
+    await repo.salvar_documentos(existentes + lote_1)
+
+    existentes = await repo.carregar_documentos()
+    await repo.salvar_documentos(existentes + lote_2)
+
+    carregados = await repo.carregar_documentos()
+    assert len(carregados) == 2
+    fontes = [d.fonte for d in carregados]
+    assert "a.txt" in fontes
+    assert "b.txt" in fontes
+
+
+@pytest.mark.asyncio
+async def test_repositorio_arquivo_acumula_documentos_em_multiplas_chamadas(tmp_path):
+    """Testa acúmulo de documentos via repositório de arquivo."""
+    from repositorio.repositorio_arquivo import RepositorioArquivo
+    from modelos.respostas import DocumentoComFonte
+
+    repo = RepositorioArquivo(str(tmp_path / "dados"))
+    lote_1 = [DocumentoComFonte(texto="Primeiro documento.", fonte="p1.txt")]
+    lote_2 = [DocumentoComFonte(texto="Segundo documento.", fonte="p2.txt")]
+    lote_3 = [DocumentoComFonte(texto="Terceiro documento.", fonte="p3.txt")]
+
+    for lote in [lote_1, lote_2, lote_3]:
+        existentes = await repo.carregar_documentos()
+        await repo.salvar_documentos(existentes + lote)
+
+    carregados = await repo.carregar_documentos()
+    assert len(carregados) == 3
+    fontes = {d.fonte for d in carregados}
+    assert fontes == {"p1.txt", "p2.txt", "p3.txt"}

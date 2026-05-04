@@ -165,3 +165,85 @@ def test_estatisticas_quando_sem_treinamento_entao_retorna_zeros(cliente):
     dados = resposta.json()
     assert dados["total_documentos"] == 0
     assert dados["tamanho_vocabulario"] == 0
+
+
+def test_treinamento_acumula_documentos_entre_requests(cliente):
+    """Testa se múltiplos requests de treinamento acumulam os documentos."""
+    payload_primeiro = {
+        "documentos": [
+            {"texto": "Python é uma linguagem de programação.", "fonte": "python.txt"},
+        ]
+    }
+    payload_segundo = {
+        "documentos": [
+            {"texto": "FastAPI é um framework web assíncrono.", "fonte": "fastapi.txt"},
+            {"texto": "scikit-learn fornece algoritmos de machine learning.", "fonte": "sklearn.txt"},
+        ]
+    }
+
+    resposta_1 = cliente.post("/treinamento", json=payload_primeiro)
+    assert resposta_1.status_code == 200
+    assert resposta_1.json()["total_documentos"] == 1
+
+    resposta_2 = cliente.post("/treinamento", json=payload_segundo)
+    assert resposta_2.status_code == 200
+    assert resposta_2.json()["total_documentos"] == 3
+
+
+def test_treinamento_acumula_e_busca_documentos_anteriores(cliente):
+    """Testa se documentos do primeiro treinamento são encontrados após segundo treinamento."""
+    cliente.post("/treinamento", json={
+        "documentos": [
+            {"texto": "Astronomia estuda corpos celestes e o universo.", "fonte": "astro.txt"},
+        ]
+    })
+    cliente.post("/treinamento", json={
+        "documentos": [
+            {"texto": "Gastronomia é a arte de cozinhar e apreciar alimentos.", "fonte": "gastro.txt"},
+        ]
+    })
+
+    resposta = cliente.post("/busca", json={"consulta": "universo celeste", "quantidade_maxima": 5})
+
+    assert resposta.status_code == 200
+    fontes = [r["fonte_documento"] for r in resposta.json()["resultados"]]
+    assert "astro.txt" in fontes
+
+
+def test_treinamento_mensagem_informa_total_e_novos(cliente):
+    """Testa se a mensagem de resposta informa total acumulado e quantidade adicionada."""
+    cliente.post("/treinamento", json={
+        "documentos": [
+            {"texto": "Primeiro documento.", "fonte": "doc1.txt"},
+        ]
+    })
+
+    resposta = cliente.post("/treinamento", json={
+        "documentos": [
+            {"texto": "Segundo documento.", "fonte": "doc2.txt"},
+            {"texto": "Terceiro documento.", "fonte": "doc3.txt"},
+        ]
+    })
+
+    dados = resposta.json()
+    assert dados["total_documentos"] == 3
+    assert "2" in dados["mensagem"]  # novos adicionados
+    assert "3" in dados["mensagem"]  # total acumulado
+
+
+def test_estatisticas_refletem_total_acumulado(cliente):
+    """Testa se /estatisticas reflete o total acumulado de documentos."""
+    cliente.post("/treinamento", json={
+        "documentos": [
+            {"texto": "Documento sobre biologia celular.", "fonte": "bio.txt"},
+        ]
+    })
+    cliente.post("/treinamento", json={
+        "documentos": [
+            {"texto": "Documento sobre química orgânica.", "fonte": "quim.txt"},
+            {"texto": "Documento sobre física quântica.", "fonte": "fis.txt"},
+        ]
+    })
+
+    resposta = cliente.get("/estatisticas")
+    assert resposta.json()["total_documentos"] == 3

@@ -39,18 +39,36 @@ testes/
 
 ## Instalação
 
+> **Atenção:** todos os comandos abaixo devem ser executados a partir da raiz do repositório (`NPL-api/`).
+
 ```bash
+# 1. Entre no diretório raiz do projeto
+cd NPL-api
+
+# 2. Instale as dependências Python
 pip install -r nlp_chatbot/requirements.txt
+
+# 3. Baixe o modelo spaCy para português
 python -m spacy download pt_core_news_sm
+
+# 4. Baixe os recursos NLTK necessários
 python -m nltk.downloader stopwords punkt
 ```
+
+> **Erro comum:** se você receber `No such file or directory: 'nlp_chatbot/requirements.txt'` ou
+> `No module named spacy/nltk`, certifique-se de que está dentro do diretório `NPL-api/` e que
+> as dependências foram instaladas com sucesso antes de baixar os modelos.
 
 ## Configuração
 
 Copie o arquivo de exemplo e ajuste conforme necessário:
 
 ```bash
+# Linux/macOS
 cp nlp_chatbot/.env.exemplo nlp_chatbot/.env
+
+# Windows
+copy nlp_chatbot\.env.exemplo nlp_chatbot\.env
 ```
 
 Variáveis de ambiente disponíveis:
@@ -61,7 +79,7 @@ Variáveis de ambiente disponíveis:
 | `CAMINHO_ARMAZENAMENTO_ARQUIVO` | `./dados` | Diretório para armazenamento em arquivo |
 | `URL_POSTGRESQL` | _(vazio)_ | URL de conexão PostgreSQL (ex: `postgresql+asyncpg://user:pass@host/db`) |
 | `MODELO_SPACY` | `pt_core_news_sm` | Nome do modelo spaCy a carregar |
-| `MODO_TOKENIZACAO_PADRAO` | `lematizacao` | Modo de tokenização inicial |
+| `MODO_TOKENIZACAO_PADRAO` | `lematizacao` | Modo de tokenização inicial (`lematizacao`, `stem`, `trigrama`, `tres_palavras`, `lematizacao_e_stem`) |
 | `NIVEL_LOG` | `INFO` | Nível de log |
 
 ## Executando a API
@@ -111,7 +129,7 @@ Adiciona palavras à lista de stopwords.
 ```
 
 ### `POST /config/tokenizacao`
-Altera o modo de tokenização. Modos disponíveis: `lematizacao`, `stem`, `trigrama`, `lematizacao_e_stem`.
+Altera o modo de tokenização. Modos disponíveis: `lematizacao`, `stem`, `trigrama`, `tres_palavras`, `lematizacao_e_stem`.
 
 ```json
 {

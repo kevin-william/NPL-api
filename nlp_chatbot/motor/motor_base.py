@@ -8,6 +8,7 @@ class ModoTokenizacao(str, Enum):
     LEMATIZACAO = "lematizacao"
     STEM = "stem"
     TRIGRAMA = "trigrama"
+    TRES_PALAVRAS = "tres_palavras"
     LEMATIZACAO_E_STEM = "lematizacao_e_stem"
 
 

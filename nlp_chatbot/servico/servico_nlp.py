@@ -33,16 +33,20 @@ class ServicoNLP:
         if modo_tokenizacao:
             await self._motor.definir_modo_tokenizacao(ModoTokenizacao(modo_tokenizacao))
 
-        docs_convertidos = [DocumentoComFonte(texto=d.texto, fonte=d.fonte) for d in documentos]
+        docs_novos = [DocumentoComFonte(texto=d.texto, fonte=d.fonte) for d in documentos]
 
-        # Persiste documentos e treina
-        await self._repositorio.salvar_documentos(docs_convertidos)
-        await self._motor.treinar_com_documentos(docs_convertidos)
+        # Acumula com documentos já persistidos
+        docs_existentes = await self._repositorio.carregar_documentos()
+        todos_docs = docs_existentes + docs_novos
+
+        # Persiste todos os documentos e retreina com o corpus completo
+        await self._repositorio.salvar_documentos(todos_docs)
+        await self._motor.treinar_com_documentos(todos_docs)
 
         estado = await self._motor.obter_estado_atual()
         return RespostaTreinamento(
-            mensagem=f"Modelo treinado com sucesso com {len(documentos)} documento(s).",
-            total_documentos=len(documentos),
+            mensagem=f"Modelo treinado com sucesso. Total acumulado: {len(todos_docs)} documento(s) ({len(docs_novos)} novo(s)).",
+            total_documentos=len(todos_docs),
             modo_tokenizacao=estado["modo_tokenizacao"],
         )
 

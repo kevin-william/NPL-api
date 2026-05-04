@@ -3,7 +3,7 @@ from typing import List, Set, Optional
 
 
 class TokenizadorPersonalizado:
-    """Tokenizador que suporta lematização (spaCy), stemming (NLTK) e trigramas."""
+    """Tokenizador que suporta lematização (spaCy), stemming (NLTK), trigramas de caracteres e agrupamento de três palavras."""
 
     def __init__(
         self,
@@ -40,7 +40,9 @@ class TokenizadorPersonalizado:
         elif self._modo == "stem":
             tokens = self._aplicar_stemming_nltk(tokens)
         elif self._modo == "trigrama":
-            tokens = self._gerar_trigramas_palavras(tokens)
+            tokens = self._gerar_trigramas_caracteres(tokens)
+        elif self._modo == "tres_palavras":
+            tokens = self._gerar_tres_palavras(tokens)
         elif self._modo == "lematizacao_e_stem":
             tokens = self._aplicar_lematizacao_spacy(texto_limpo, tokens)
             tokens = self._aplicar_stemming_nltk(tokens)
@@ -89,12 +91,20 @@ class TokenizadorPersonalizado:
             return tokens
         return [self._stemmer_nltk.stem(t) for t in tokens]
 
-    def _gerar_trigramas_palavras(self, tokens: List[str]) -> List[str]:
-        """Gera trigramas de palavras a partir da lista de tokens."""
+    def _gerar_trigramas_caracteres(self, tokens: List[str]) -> List[str]:
+        """Gera trigramas de caracteres (sequências de 3 letras) a partir dos tokens."""
+        trigramas: List[str] = []
+        for token in tokens:
+            if len(token) >= 3:
+                trigramas.extend(token[i:i + 3] for i in range(len(token) - 2))
+        return trigramas if trigramas else tokens
+
+    def _gerar_tres_palavras(self, tokens: List[str]) -> List[str]:
+        """Gera grupos de três palavras consecutivas a partir da lista de tokens."""
         if len(tokens) < 3:
             return tokens
-        trigramas = [
+        grupos = [
             f"{tokens[i]}_{tokens[i+1]}_{tokens[i+2]}"
             for i in range(len(tokens) - 2)
         ]
-        return trigramas if trigramas else tokens
+        return grupos if grupos else tokens
