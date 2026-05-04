@@ -1,9 +1,10 @@
+import re
 import asyncio
 import logging
 from typing import List, Optional, Set
 from collections import Counter
 
-from modelos.respostas import DocumentoComFonte, ResultadoBusca, EstatisticasCorpus
+from modelos.respostas import DocumentoComFonte, ResultadoBusca, EstatisticasCorpus, FraseProcessada
 from motor.motor_base import MotorNLP, ModoTokenizacao
 from motor.tokenizador_personalizado import TokenizadorPersonalizado
 
@@ -20,6 +21,7 @@ class MotorSklearnSpacyNltk(MotorNLP):
         self._matriz_tfidf = None
         self._documentos_originais: List[str] = []
         self._fontes_documentos: List[str] = []
+        self._frases_processadas: List[FraseProcessada] = []
         self._stopwords_personalizadas: Set[str] = set()
         self._modo_tokenizacao_atual: ModoTokenizacao = ModoTokenizacao(modo_inicial)
         self._modelo_treinado: bool = False
@@ -72,6 +74,62 @@ class MotorSklearnSpacyNltk(MotorNLP):
         except Exception:
             return set()
 
+    def _dividir_texto_em_paragrafos(self, texto: str) -> List[str]:
+        """Quebra o texto em parágrafos usando quebras de linha duplas."""
+        paragrafos = re.split(r'\n{2,}', texto)
+        return [p.strip() for p in paragrafos if p.strip()]
+
+    def _extrair_frases_de_paragrafo(self, paragrafo: str) -> List[str]:
+        """Usa spaCy para segmentar o parágrafo em frases."""
+        if self._modelo_spacy is not None:
+            try:
+                doc = self._modelo_spacy(paragrafo)
+                frases = [sent.text.strip() for sent in doc.sents if sent.text.strip()]
+                if frases:
+                    return frases
+            except Exception:
+                pass
+        frases = re.split(r'(?<=[.!?])\s+', paragrafo.strip())
+        return [f for f in frases if f.strip()] or [paragrafo.strip()]
+
+    def _normalizar_frase_para_busca(self, frase: str) -> str:
+        """Aplica limpeza básica: caixa baixa e remoção de espaços extras."""
+        return " ".join(frase.lower().split())
+
+    def _processar_documentos_em_frases(self, documentos: List[DocumentoComFonte]) -> List[FraseProcessada]:
+        """Processa documentos em frases com metadados de parágrafo e posição."""
+        frases_processadas: List[FraseProcessada] = []
+        for indice_doc, documento in enumerate(documentos):
+            paragrafos = self._dividir_texto_em_paragrafos(documento.texto)
+            if not paragrafos:
+                logger.debug(
+                    "Documento '%s' sem quebras de parágrafo detectadas; tratado como um único parágrafo.",
+                    documento.fonte,
+                )
+                paragrafos = [documento.texto.strip()]
+            for num_paragrafo, paragrafo in enumerate(paragrafos, start=1):
+                frases = self._extrair_frases_de_paragrafo(paragrafo)
+                for num_frase, frase in enumerate(frases, start=1):
+                    texto_normalizado = self._normalizar_frase_para_busca(frase)
+                    frases_processadas.append(FraseProcessada(
+                        texto_normalizado=texto_normalizado,
+                        texto_original=frase,
+                        fonte=documento.fonte,
+                        indice_documento=indice_doc,
+                        numero_paragrafo=num_paragrafo,
+                        numero_frase=num_frase,
+                    ))
+        return frases_processadas
+
+    def _gerar_trecho_com_destaque(self, frase: str, consulta: str) -> str:
+        """Gera um trecho da frase com os termos da consulta destacados com **."""
+        termos = set(re.findall(r'\w+', consulta.lower()))
+        resultado = frase
+        for termo in sorted(termos, key=len, reverse=True):
+            padrao = re.compile(r'(?i)\b' + re.escape(termo) + r'\b')
+            resultado = padrao.sub(lambda m: f"**{m.group()}**", resultado)
+        return resultado
+
     def _treinar_sincronico(self, textos: List[str]) -> None:
         """Executa o treinamento TF-IDF de forma síncrona (para uso com asyncio.to_thread)."""
         from sklearn.feature_extraction.text import TfidfVectorizer
@@ -103,28 +161,33 @@ class MotorSklearnSpacyNltk(MotorNLP):
             pontuacao = float(similaridades[idx])
             if pontuacao <= 0.0:
                 continue
-            texto_original = self._documentos_originais[idx]
-            # Extrai trecho relevante (primeiros 200 caracteres)
-            trecho = texto_original[:200].strip()
-            if len(texto_original) > 200:
-                trecho += "..."
+            frase = self._frases_processadas[idx]
+            trecho_relevante = self._gerar_trecho_com_destaque(frase.texto_original, consulta)
 
             resultados.append(ResultadoBusca(
-                identificador_documento=int(idx),
-                trecho_relevante=trecho,
+                identificador_documento=frase.indice_documento,
+                numero_paragrafo=frase.numero_paragrafo,
+                numero_frase=frase.numero_frase,
+                frase_completa=frase.texto_original,
+                trecho_relevante=trecho_relevante,
                 pontuacao_similaridade=round(pontuacao, 4),
-                fonte_documento=self._fontes_documentos[idx],
+                fonte_documento=frase.fonte,
             ))
 
         return resultados
 
     async def treinar_com_documentos(self, documentos: List[DocumentoComFonte]) -> None:
-        """Treina o modelo com uma lista de documentos."""
+        """Treina o modelo com uma lista de documentos, indexando em nível de frase."""
         self._documentos_originais = [doc.texto for doc in documentos]
         self._fontes_documentos = [doc.fonte for doc in documentos]
-        await asyncio.to_thread(self._treinar_sincronico, self._documentos_originais)
+        self._frases_processadas = self._processar_documentos_em_frases(documentos)
+        textos_normalizados = [fp.texto_normalizado for fp in self._frases_processadas]
+        await asyncio.to_thread(self._treinar_sincronico, textos_normalizados)
         self._modelo_treinado = True
-        logger.info(f"Modelo treinado com {len(documentos)} documentos.")
+        logger.info(
+            f"Modelo treinado com {len(documentos)} documento(s), "
+            f"{len(self._frases_processadas)} frase(s)."
+        )
 
     async def adicionar_stopwords(self, palavras: List[str]) -> None:
         """Adiciona palavras à lista de stopwords personalizadas."""
@@ -183,6 +246,7 @@ class MotorSklearnSpacyNltk(MotorNLP):
         return {
             "modelo_treinado": self._modelo_treinado,
             "total_documentos": len(self._documentos_originais),
+            "total_frases": len(self._frases_processadas),
             "modo_tokenizacao": self._modo_tokenizacao_atual.value,
             "tamanho_vocabulario": vocabulario_tamanho,
             "quantidade_stopwords": len(self._stopwords_personalizadas),

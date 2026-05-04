@@ -7,8 +7,20 @@ class DocumentoComFonte(BaseModel):
     fonte: str
 
 
+class FraseProcessada(BaseModel):
+    texto_normalizado: str
+    texto_original: str
+    fonte: str
+    indice_documento: int
+    numero_paragrafo: int
+    numero_frase: int
+
+
 class ResultadoBusca(BaseModel):
     identificador_documento: int
+    numero_paragrafo: int
+    numero_frase: int
+    frase_completa: str
     trecho_relevante: str
     pontuacao_similaridade: float
     fonte_documento: str
