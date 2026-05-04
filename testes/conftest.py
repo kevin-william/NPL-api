@@ -1,14 +1,9 @@
 """
 Fixtures e configurações compartilhadas para os testes.
 """
-import sys
-import os
 import pytest
 import pytest_asyncio
 from unittest.mock import MagicMock, AsyncMock
-
-# Adiciona o diretório nlp_chatbot ao sys.path para imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "nlp_chatbot"))
 
 
 def criar_mock_token_spacy(texto: str, lema: str = None, is_stop: bool = False,

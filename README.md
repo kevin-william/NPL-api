@@ -136,5 +136,3 @@ python -m pytest testes/ -v
 - **NLTK** — Stemming (SnowballStemmer)
 - **SQLAlchemy** — ORM com suporte async para PostgreSQL
 - **Pydantic** — Validação de dados e configurações
-
-Uma API para Processamento de Linguagem Natural Básica em Python

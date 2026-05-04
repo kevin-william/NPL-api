@@ -1,11 +1,7 @@
 """
 Testes para as implementações de repositório.
 """
-import sys
-import os
 import pytest
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "nlp_chatbot"))
 
 
 @pytest.fixture

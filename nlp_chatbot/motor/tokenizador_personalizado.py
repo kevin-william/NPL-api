@@ -48,8 +48,13 @@ class TokenizadorPersonalizado:
         return [t for t in tokens if t.strip()]
 
     def _limpar_texto(self, texto: str) -> str:
-        """Remove caracteres especiais e normaliza o texto."""
+        """Remove caracteres especiais e normaliza o texto.
+
+        O texto é convertido para minúsculas antes desta etapa, portanto apenas
+        variantes minúsculas dos caracteres acentuados precisam ser incluídas.
+        """
         texto = texto.lower()
+        # Mantém letras do alfabeto português (já em minúsculas), espaços e remove o restante.
         texto = re.sub(r"[^a-záàãâéêíóôõúüçñ\s]", " ", texto)
         texto = re.sub(r"\s+", " ", texto).strip()
         return texto
